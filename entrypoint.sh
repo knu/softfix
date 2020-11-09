@@ -3,15 +3,7 @@
 set -e
 
 PR_NUMBER=$(jq -r ".issue.number" "$GITHUB_EVENT_PATH")
-COMMENT_BODY=$(jq ".comment.body" "$GITHUB_EVENT_PATH")
-
-ESCAPED_COMMIT_MSG=$(echo $COMMENT_BODY | sed -e 's=.*/softfix\\r\\n```\(.*\)\\r\\n```.*=\1=')
-COMMIT_MSG=$(echo -e $ESCAPED_COMMIT_MSG)
-
-if [[ "$ESCAPED_COMMIT_MSG" == "$COMMENT_BODY" ]]; then
-	# Do not edit the commit message
-	COMMIT_MSG=""
-fi
+COMMIT_MSG=$(jq -r '.comment.body | gsub("\r\n"; "\n") | match("(?<!\\S)/softfix\\n```\\n(.*?)\\n```(?:\\n|\\z)"; "m").captures[0].string' "$GITHUB_EVENT_PATH")
 
 # Grab the old commit message and use it if there is nothing else
 # But really only handling of the message is required now, and a lot of cleanup
