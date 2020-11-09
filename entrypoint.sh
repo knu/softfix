@@ -3,7 +3,7 @@
 set -e
 
 PR_NUMBER=$(jq -r ".issue.number" "$GITHUB_EVENT_PATH")
-COMMIT_MSG=$(jq -r '.comment.body | gsub("\r\n"; "\n") | match("(?<!\\S)/softfix\\n```\\n(.*?)\\n```(?:\\n|\\z)"; "m").captures[0].string' "$GITHUB_EVENT_PATH")
+COMMENT_BODY=$(jq -r '.comment.body | gsub("\r\n"; "\n")' "$GITHUB_EVENT_PATH")
 
 # Grab the old commit message and use it if there is nothing else
 # But really only handling of the message is required now, and a lot of cleanup
@@ -25,6 +25,9 @@ COMMITS_URL=$(echo "$pr_response" | jq -r .commits_url)
 commits_response=$(curl -s -H "${AUTH_HEADER}" -H "${API_HEADER}" $COMMITS_URL)
 # This is limited to 250 entries, but it should be okay
 N_COMMITS=$(echo $commits_response | jq -r length)
+
+# /softfix ``` ... ```
+COMMIT_MSG=$(jq -rRs 'match("(?<!\\S)/softfix\\n```\\n(.*?)\\n```(?:\\n|\\z)"; "m").captures[0].string' <<<"$COMMENT_BODY")
 
 if [[ -z "$COMMIT_MSG" ]] && [[ "$N_COMMITS" -eq 1 ]]; then
 	echo "Nothing to do here, aborting..."
@@ -62,6 +65,12 @@ git remote add fork https://x-access-token:$COMMITTER_TOKEN@github.com/$HEAD_REP
 git fetch fork $HEAD_BRANCH
 
 git checkout -b $HEAD_BRANCH fork/$HEAD_BRANCH
+
+if [[ -z "$COMMIT_MSG" ]] && jq -eRs 'test("(?<!\\S)/softfix:squash\\b")' <<<"$COMMENT_BODY" >/dev/null; then
+	# /softfix:squash: GitHub's Squash and merge style
+	COMMIT_MSG=$(git log --reverse --pretty=format:"* %B" "HEAD~$N_COMMITS..HEAD" | tail -c +3)
+fi
+
 git reset --soft HEAD~$(($N_COMMITS-1))
 
 if [[ -z "$COMMIT_MSG" ]]; then
@@ -71,10 +80,3 @@ else
 fi
 
 git push --force-with-lease fork $HEAD_BRANCH
-
-
-
-
-
-
-
