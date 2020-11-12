@@ -15,14 +15,18 @@ if [[ -z "$GITHUB_TOKEN" ]]; then
 fi
 
 URI="https://api.github.com"
-ACCEPT_HEADER="Accept: application/vnd.github.v3+json"
-AUTH_HEADER="Authorization: token $GITHUB_TOKEN"
 
-pr_response=$(curl -s -H "${AUTH_HEADER}" -H "${API_HEADER}" \
-"${URI}/repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER")
+github_api () {
+	curl -s \
+	-H "Authorization: token $GITHUB_TOKEN" \
+	-H "Accept: application/vnd.github.v3+json" \
+	"$@"
+}
+
+pr_response=$(github_api "${URI}/repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER")
 
 COMMITS_URL=$(echo "$pr_response" | jq -r .commits_url)
-commits_response=$(curl -s -H "${AUTH_HEADER}" -H "${API_HEADER}" $COMMITS_URL)
+commits_response=$(github_api $COMMITS_URL)
 # This is limited to 250 entries, but it should be okay
 N_COMMITS=$(echo $commits_response | jq -r length)
 
@@ -35,8 +39,7 @@ if [[ -z "$COMMIT_MSG" ]] && [[ "$N_COMMITS" -eq 1 ]]; then
 fi
 
 USER_LOGIN=$(jq -r ".comment.user.login" "$GITHUB_EVENT_PATH")
-user_response=$(curl -s -H "${AUTH_HEADER}" -H "${API_HEADER}" \
-"${URI}/users/${USER_LOGIN}")
+user_response=$(github_api "${URI}/users/${USER_LOGIN}")
 
 USER_NAME=$(echo "$user_response" | jq -r ".name")
 if [[ "$USER_NAME" == "null" ]]; then
