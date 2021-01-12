@@ -38,6 +38,11 @@ if [[ -z "$COMMIT_MSG" ]] && [[ "$N_COMMITS" -eq 1 ]]; then
 	exit 0
 fi
 
+github_api -X POST \
+           -H "Accept: application/vnd.github.squirrel-girl-preview" \
+           -d '{"content":"+1"}' \
+           "$(jq -r '.comment.url' "$GITHUB_EVENT_PATH")/reactions" || :
+
 USER_LOGIN=$(jq -r ".comment.user.login" "$GITHUB_EVENT_PATH")
 user_response=$(github_api "${URI}/users/${USER_LOGIN}")
 
