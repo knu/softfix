@@ -31,7 +31,7 @@ commits_response=$(github_api $COMMITS_URL)
 N_COMMITS=$(jq -r length <<<"$commits_response")
 
 # /softfix ``` ... ```
-COMMIT_MSG=$(jq -rRs 'match("(?<!\\S)/softfix\\n```\\n(.*?)\\n```(?:\\n|\\z)"; "m").captures[0].string' <<<"$COMMENT_BODY")
+COMMIT_MSG=$(jq -rRs 'match("(?<!\\S)/softfix(?::squash)?\\n```\\n(.*?)\\n```(?:\\n|\\z)"; "m").captures[0].string' <<<"$COMMENT_BODY")
 
 if [[ -z "$COMMIT_MSG" ]] && [[ "$N_COMMITS" -eq 1 ]]; then
 	echo "Nothing to do here, aborting..."
