@@ -33,11 +33,6 @@ N_COMMITS=$(jq -r length <<<"$commits_response")
 # /softfix ``` ... ```
 COMMIT_MSG=$(jq -rRs 'match("(?<!\\S)/softfix(?::squash)?\\n```\\n(.*?)\\n```(?:\\n|\\z)"; "m").captures[0].string' <<<"$COMMENT_BODY")
 
-if [[ -z "$COMMIT_MSG" ]] && [[ "$N_COMMITS" -eq 1 ]]; then
-	echo "Nothing to do here, aborting..."
-	exit 0
-fi
-
 COMMENT_URL="$(jq -r '.comment.url' "$GITHUB_EVENT_PATH")"
 
 add_reaction () {
@@ -47,7 +42,30 @@ add_reaction () {
                "$COMMENT_URL/reactions" || :
 }
 
+command=$(jq -rRs 'match("(?<!\\S)/(softfix(?::(?:squash|rebase))?)$").captures[0].string' <<<"$COMMENT_BODY")
+
+case "$command" in
+	"")
+		echo "No valid directive is found, aborting..."
+		exit 0
+		;;
+	*:*)
+		command=${command#*:}
+		;;
+	*)
+		command=fixup
+esac
+
 add_reaction +1
+
+case "$command" in
+	fixup|squash)
+		if [[ -z "$COMMIT_MSG" && "$N_COMMITS" -eq 1 ]]; then
+			echo "Nothing to do here, aborting..."
+			exit 0
+		fi
+		;;
+esac
 
 USER_LOGIN=$(jq -r ".comment.user.login" "$GITHUB_EVENT_PATH")
 user_response=$(github_api "${URI}/users/${USER_LOGIN}")
@@ -69,19 +87,35 @@ git fetch fork "$HEAD_BRANCH"
 
 git checkout -b "$HEAD_BRANCH" "fork/$HEAD_BRANCH"
 
-if [[ -z "$COMMIT_MSG" ]] && jq -eRs 'test("(?<!\\S)/softfix:squash\\b")' <<<"$COMMENT_BODY" >/dev/null; then
-	# /softfix:squash: GitHub's Squash and merge style
-	COMMIT_MSG=$(git log --reverse --pretty=format:"* %B" "HEAD~$N_COMMITS..HEAD" | tail -c +3)
-fi
+case "$command" in
+	fixup|squash)
+		if [[ -z "$COMMIT_MSG" && "$command" == squash ]]; then
+			# /softfix:squash: GitHub's Squash and merge style
+			COMMIT_MSG=$(git log --reverse --pretty=format:"* %B" "HEAD~$N_COMMITS..HEAD" | tail -c +3)
+		fi
 
-git reset --soft HEAD~$(($N_COMMITS-1))
+		git reset --soft HEAD~$(($N_COMMITS-1))
 
-if [[ -z "$COMMIT_MSG" ]]; then
-	git commit --amend --no-edit
-else
-	git commit --amend -m "$COMMIT_MSG"
-fi
+		if [[ -z "$COMMIT_MSG" ]]; then
+			git commit --amend --no-edit
+		else
+			git commit --amend -m "$COMMIT_MSG"
+		fi
+		;;
+	rebase)
+		BASE_BRANCH=$(jq -r .base.ref <<<"$pr_response")
 
-git push --force-with-lease fork "$HEAD_BRANCH"
+		git fetch origin "$BASE_BRANCH"
+
+		git rebase HEAD~$N_COMMITS --onto "origin/$BASE_BRANCH" || {
+			add_reaction confused
+			exit 0
+		}
+esac
+
+git push --force-with-lease fork "$HEAD_BRANCH" || {
+	add_reaction confused
+	exit 0
+}
 
 add_reaction hooray
