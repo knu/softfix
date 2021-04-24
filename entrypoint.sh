@@ -25,10 +25,10 @@ github_api () {
 
 pr_response=$(github_api "${URI}/repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER")
 
-COMMITS_URL=$(echo "$pr_response" | jq -r .commits_url)
+COMMITS_URL=$(jq -r .commits_url <<<"$pr_response")
 commits_response=$(github_api $COMMITS_URL)
 # This is limited to 250 entries, but it should be okay
-N_COMMITS=$(echo $commits_response | jq -r length)
+N_COMMITS=$(jq -r length <<<"$commits_response")
 
 # /softfix ``` ... ```
 COMMIT_MSG=$(jq -rRs 'match("(?<!\\S)/softfix\\n```\\n(.*?)\\n```(?:\\n|\\z)"; "m").captures[0].string' <<<"$COMMENT_BODY")
@@ -45,34 +45,23 @@ github_api -X POST \
 
 USER_LOGIN=$(jq -r ".comment.user.login" "$GITHUB_EVENT_PATH")
 user_response=$(github_api "${URI}/users/${USER_LOGIN}")
-
-USER_NAME=$(echo "$user_response" | jq -r ".name")
-if [[ "$USER_NAME" == "null" ]]; then
-	USER_NAME=$USER_LOGIN
-fi
-
-USER_NAME="${USER_NAME} (Softfix Action)"
-
-USER_EMAIL=$(echo "$user_response" | jq -r ".email")
-if [[ "$USER_EMAIL" == "null" ]]; then
-	USER_EMAIL="$USER_LOGIN@users.noreply.github.com"
-fi
-
-HEAD_REPO=$(echo "$pr_response" | jq -r .head.repo.full_name)
-HEAD_BRANCH=$(echo "$pr_response" | jq -r .head.ref)
+USER_NAME="$(jq -r --arg default "$USER_LOGIN" '.name // $default' <<<"$user_response") (Softfix Action)"
+USER_EMAIL="$(jq -r --arg default "$USER_LOGIN@users.noreply.github.com" '.email // $default' <<<"$user_response")"
+HEAD_REPO=$(jq -r .head.repo.full_name <<<"$pr_response")
+HEAD_BRANCH=$(jq -r .head.ref <<<"$pr_response")
 
 USER_TOKEN=${USER_LOGIN}_TOKEN
 COMMITTER_TOKEN=${!USER_TOKEN:-$GITHUB_TOKEN}
 
-git remote set-url origin https://x-access-token:$COMMITTER_TOKEN@github.com/$GITHUB_REPOSITORY.git
+git remote set-url origin "https://x-access-token:$COMMITTER_TOKEN@github.com/$GITHUB_REPOSITORY.git"
 git config --global user.email "$USER_EMAIL"
 git config --global user.name "$USER_NAME"
 
-git remote add fork https://x-access-token:$COMMITTER_TOKEN@github.com/$HEAD_REPO.git
+git remote add fork "https://x-access-token:$COMMITTER_TOKEN@github.com/$HEAD_REPO.git"
 
-git fetch fork $HEAD_BRANCH
+git fetch fork "$HEAD_BRANCH"
 
-git checkout -b $HEAD_BRANCH fork/$HEAD_BRANCH
+git checkout -b "$HEAD_BRANCH" "fork/$HEAD_BRANCH"
 
 if [[ -z "$COMMIT_MSG" ]] && jq -eRs 'test("(?<!\\S)/softfix:squash\\b")' <<<"$COMMENT_BODY" >/dev/null; then
 	# /softfix:squash: GitHub's Squash and merge style
@@ -87,4 +76,4 @@ else
 	git commit --amend -m "$COMMIT_MSG"
 fi
 
-git push --force-with-lease fork $HEAD_BRANCH
+git push --force-with-lease fork "$HEAD_BRANCH"
