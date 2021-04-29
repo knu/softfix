@@ -42,7 +42,7 @@ add_reaction () {
                "$COMMENT_URL/reactions" || :
 }
 
-command=$(jq -rRs 'match("(?<!\\S)/(softfix(?::(?:squash|rebase))?)$").captures[0].string' <<<"$COMMENT_BODY")
+command=$(jq -rRs 'match("(?<!\\S)/(softfix(?::[a-z0-9\\-_]+)?)$").captures[0].string' <<<"$COMMENT_BODY")
 
 case "$command" in
 	"")
@@ -64,6 +64,12 @@ case "$command" in
 			exit 0
 		fi
 		;;
+	rebase)
+		;;
+	*)
+		echo "Unknown command, aborting..."
+		add_reaction eyes
+		exit 0
 esac
 
 add_reaction +1
