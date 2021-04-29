@@ -56,16 +56,17 @@ case "$command" in
 		command=fixup
 esac
 
-add_reaction +1
-
 case "$command" in
 	fixup|squash)
 		if [[ -z "$COMMIT_MSG" && "$N_COMMITS" -eq 1 ]]; then
 			echo "Nothing to do here, aborting..."
+			add_reaction laugh
 			exit 0
 		fi
 		;;
 esac
+
+add_reaction +1
 
 USER_LOGIN=$(jq -r ".comment.user.login" "$GITHUB_EVENT_PATH")
 user_response=$(github_api "${URI}/users/${USER_LOGIN}")
