@@ -64,7 +64,7 @@ case "$command" in
 			exit 0
 		fi
 		;;
-	rebase)
+	rebase|merge)
 		;;
 	*)
 		echo "Unknown command, aborting..."
@@ -109,7 +109,7 @@ case "$command" in
 			git commit --amend -m "$COMMIT_MSG"
 		fi
 		;;
-	rebase)
+	rebase|merge)
 		BASE_BRANCH=$(jq -r .base.ref <<<"$pr_response")
 
 		git fetch origin "$BASE_BRANCH"
@@ -137,10 +137,26 @@ case "$command" in
 			git config merge.merge-structure-sql.driver 'git-merge-structure-sql %A %O %B'
 		fi
 
-		git rebase HEAD~$N_COMMITS --onto "origin/$BASE_BRANCH" || {
+		case "$command" in
+			rebase)
+				git rebase HEAD~$N_COMMITS --onto "origin/$BASE_BRANCH"
+				;;
+			merge)
+				if [[ -z "$COMMIT_MSG" ]]; then
+					git merge "origin/$BASE_BRANCH" --no-edit
+				else
+					git merge "origin/$BASE_BRANCH" -m "$COMMIT_MSG"
+				fi
+				;;
+			*)
+				false
+		esac || {
 			add_reaction confused
 			exit 0
 		}
+		;;
+	*)
+		false
 esac
 
 git push --force-with-lease fork "$HEAD_BRANCH" || {
