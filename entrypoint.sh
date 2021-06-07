@@ -114,28 +114,19 @@ case "$command" in
 
 		git fetch origin "$BASE_BRANCH"
 
-		# Install merge drivers for Git
-		files=$(git diff --name-only HEAD~$N_COMMITS)
+		echo 'ChangeLog   merge=merge-changelog' >> .git/info/attributes
+		echo 'ChangeLog.* merge=merge-changelog' >> .git/info/attributes
+		git config merge.merge-changelog.name 'GNU-style ChangeLog merge driver'
+		git config merge.merge-changelog.driver 'git-merge-changelog %O %A %B'
 
-		if grep -qE '(^|/)ChangeLog($|\.)' <<<"$files"; then
-			echo 'ChangeLog   merge=merge-changelog' >> .git/info/attributes
-			echo 'ChangeLog.* merge=merge-changelog' >> .git/info/attributes
-			git config merge.merge-changelog.name 'GNU-style ChangeLog merge driver'
-			git config merge.merge-changelog.driver 'git-merge-changelog %O %A %B'
-		fi
+		echo 'schema.rb merge=merge-schema-rb' >> .git/info/attributes
+		git config merge.merge-schema-rb.name 'Rails schema.rb merge driver'
+		git config merge.merge-schema-rb.driver 'merge_db_schema %O %A %B'
+		git config merge.merge-schema-rb.recursive 'text'
 
-		if grep -qE '(^|/)structure\.sql$' <<<"$files"; then
-			echo 'schema.rb merge=merge-schema-rb' >> .git/info/attributes
-			git config merge.merge-schema-rb.name 'Rails schema.rb merge driver'
-			git config merge.merge-schema-rb.driver 'merge_db_schema %O %A %B'
-			git config merge.merge-schema-rb.recursive 'text'
-		fi
-
-		if grep -qE '(^|/)schema\.rb$' <<<"$files"; then
-			echo 'structure.sql merge=merge-structure-sql' >> .git/info/attributes
-			git config merge.merge-structure-sql.name 'Rails structure.sql merge driver'
-			git config merge.merge-structure-sql.driver 'git-merge-structure-sql %A %O %B'
-		fi
+		echo 'structure.sql merge=merge-structure-sql' >> .git/info/attributes
+		git config merge.merge-structure-sql.name 'Rails structure.sql merge driver'
+		git config merge.merge-structure-sql.driver 'git-merge-structure-sql %A %O %B'
 
 		case "$command" in
 			rebase)
