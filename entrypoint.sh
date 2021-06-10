@@ -130,9 +130,15 @@ case "$command" in
 
 		case "$command" in
 			rebase)
-				old_base=$(git rev-parse --short HEAD~$N_COMMITS)
-				echo "Rebasing $N_COMMITS commits (from $old_base) onto $BASE_BRANCH"
-				git rebase "$old_base" --onto "origin/$BASE_BRANCH"
+				echo "Rebasing the $HEAD_BRANCH branch onto origin/$BASE_BRANCH"
+				git rebase "origin/$BASE_BRANCH" || {
+					echo "Failed!" >&2
+					git rebase --abort
+
+					old_base=$(git rev-parse --short HEAD~$N_COMMITS)
+					echo "Falling back to rebasing $N_COMMITS commits (from $old_base) onto origin/$BASE_BRANCH"
+					git rebase "$old_base" --onto "origin/$BASE_BRANCH"
+				}
 				;;
 			merge)
 				if [[ -z "$COMMIT_MSG" ]]; then
