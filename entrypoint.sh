@@ -112,7 +112,7 @@ case "$command" in
 	rebase|merge)
 		BASE_BRANCH=$(jq -r .base.ref <<<"$pr_response")
 
-		git fetch origin "$BASE_BRANCH"
+		git fetch --unshallow origin "$BASE_BRANCH"
 
 		echo 'ChangeLog   merge=merge-changelog' >> .git/info/attributes
 		echo 'ChangeLog.* merge=merge-changelog' >> .git/info/attributes
