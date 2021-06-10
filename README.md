@@ -36,6 +36,7 @@ The following merge drivers are used (as necessary) in rebase/merge operations.
 
 - [git-merge-changelog](http://manpages.ubuntu.com/manpages/focal/man1/git-merge-changelog.1.html) - git merge driver for GNU ChangeLog files
 - [git-merge-structure-sql](https://github.com/knu/git-merge-structure-sql) - git merge driver for db/structure.sql files of Rails
+- [merge_db_schema](https://github.com/pocke/merge_db_schema) - git merge driver for db/schema.rb of Rails
 
 ## Motivation
 A PR should be atomic in itself, and can usually be a single commit. When you submit a change to an upstream repo, after a long and arduous review process, you will probably be asked to "squash" your commits. This can be confusing, especially for new contributors, so this action makes it easy to turn the entire changeset into one commit and if one wants to do so, change the commit message.
